@@ -1,7 +1,5 @@
 from typing import List
 
-with open('2/data.txt', 'r') as file:
-    lines = file.readlines()
 
 def is_safe(line:List[int])-> bool:
     # The levels are either all increasing or all decreasing.
@@ -25,16 +23,19 @@ def is_safe_dampener(line:List[int]) -> bool:
             if is_safe(line_copy):
                 return True
     return False
-                   
-safe_count =0
-safe_count_d = 0
-for line in lines:
-    line_list = line.split()
-    line_int = [int(x) for x  in line_list if x.isnumeric()]
-    if is_safe(line_int):
-        safe_count +=1
-    if is_safe_dampener(line_int):
-        safe_count_d +=1
 
-print(safe_count)
-print(safe_count_d)
+if __name__ == '__main__':
+    with open('2/data.txt', 'r') as file:
+        lines = file.readlines()                  
+    safe_count =0
+    safe_count_d = 0
+    for line in lines:
+        line_list = line.split()
+        line_int = [int(x) for x  in line_list if x.isnumeric()]
+        if is_safe(line_int):
+            safe_count +=1
+        if is_safe_dampener(line_int):
+            safe_count_d +=1
+
+    print(safe_count)
+    print(safe_count_d)
