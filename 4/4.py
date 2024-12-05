@@ -33,9 +33,9 @@ if __name__ == '__main__':
         counter_1+=find_xmas(matrix_nd[i,:])
     for j in range(n_columns): #column
         counter_1+=find_xmas(matrix_nd[:,j])
-    for d in range(-n_columns, n_columns+1):
+    for d in range(-n_columns, n_columns+1): #diagonals
         counter_1+=find_xmas(matrix_nd.diagonal(d, axis1=0,axis2=1))
-    for d in range(-n_rows, n_rows+1):    
+    for d in range(-n_rows, n_rows+1): #reverse diagonals     
         counter_1+=find_xmas(np.fliplr(matrix_nd).diagonal(d, axis1=0,axis2=1))
     print(f'{counter_1=}')
 
