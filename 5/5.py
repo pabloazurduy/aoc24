@@ -11,7 +11,7 @@ def topological_sort(rules_tuples:List[Tuple[int,int]]) -> List[int]:
 
 
 if __name__ == '__main__':
-    with open('5/data.txt', 'r') as file:
+    with open('5/data_test.txt', 'r') as file:
         lines = file.readlines()      
     
     rules:Dict[int,List[int]] = defaultdict(list)
