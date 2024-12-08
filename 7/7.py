@@ -13,8 +13,6 @@ def calib(nums:List[int], rt:int, target) -> bool:
             calib(nums[1:], rt=(rt * nums[0]), target=target))
     
 
-
-
 if __name__ == '__main__':
     with open('7/data.txt', 'r') as file:
         lines = file.read().splitlines() 
