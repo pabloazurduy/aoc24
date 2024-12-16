@@ -13,6 +13,29 @@ def perp_dir(p_in:Coord, p_out:Coord) -> Tuple[int,int]:
     gr = (p_in[0]-p_out[0], p_in[1]-p_out[1])
     return R90[gr]
 
+def r90_coord(p0:Coord, p1:Coord, n:int=1, clockwise:bool = True) -> Coord:
+    # p0 center, p1 point
+    # Normalize n to be between 0 and 3
+    n = n % 4
+    
+    current_x, current_y = p1[0], p1[1]
+    
+    # Apply n rotations
+    for _ in range(n):
+        dx = current_x - p0[0]  # distance from center in x
+        dy = current_y - p0[1]  # distance from center in y
+        
+        if clockwise:
+            new_x = p0[0] + dy      # center_x + (y - center_y)
+            new_y = p0[1] - dx      # center_y - (x - center_x)
+        else:
+            new_x = p0[0] - dy      # center_x - (y - center_y)
+            new_y = p0[1] + dx      # center_y + (x - center_x)
+            
+        current_x, current_y = new_x, new_y
+    
+    return (current_x, current_y)
+    
 
 def move_forward(p_in:Coord, p_out:Coord):
     d = perp_dir(p_in, p_out)
@@ -22,18 +45,21 @@ def move_forward(p_in:Coord, p_out:Coord):
 
 def rotate(p_in:Coord, p_out:Coord, interior:List[Coord], outside:Dict[Coord, List[Coord]], taboo:List[Tuple[Coord,Coord]]) :
     for ext_flag in [True, False]: 
-        for rd in [(-1,1), (1,1), (1,-1), (-1,-1)]:        
+        for rd in [1]:        
             if ext_flag: 
                 # rotate exterior
-                np_out = (p_out[0] + rd[0], p_out[1]+ rd[1])
+                np_out = r90_coord(p_in, p_out, rd, clockwise=True)
                 np_in = p_in
             else:
                 # rotate interior
-                np_in = (p_in[0] + rd[0], p_in[1]+ rd[1])
+                np_in = r90_coord(p_out, p_in, rd, clockwise=False)
                 np_out = p_out
 
-            print(p_in, p_out, rd, np_in, np_out, np_in in interior, np_out in outside[np_in])
-            if np_in in interior and np_out in outside[np_in] and (np_in, np_out) not in taboo:
+            print(p_in, p_out, rd, np_in, np_out, np_in in interior, np_out in outside[np_in], (np_in, np_out) in taboo)
+            if (np_in in interior 
+                and np_out in outside[np_in] 
+                #and (np_in, np_out) not in taboo
+                ):
                 return np_in, np_out
     
     raise ValueError()
@@ -47,6 +73,7 @@ def bounds_from_start(i_in:Coord, i_out:Coord,
     p_in, p_out = i_in, i_out # set first point 
     n_bounds = 0 #count is initialized on 0
     while True:
+        taboo.append((p_in,p_out))
         # try to move forward
         np_in, np_out = move_forward(p_in, p_out)  
         if (np_in in interior and np_out in exterior): 
@@ -55,14 +82,17 @@ def bounds_from_start(i_in:Coord, i_out:Coord,
             print(f'move forward {p_in, p_out}') 
         else:
             # if I can't move forward: then rotate
+
             np_in, np_out = rotate(p_in, p_out, interior, outside, taboo)
+
             print(f'rotate {p_in, p_out, np_in, np_out}')
             p_in, p_out = np_in, np_out # move
             n_bounds+=1 
-        taboo.append((p_in,p_out))
+        
+        
         if p_in == i_in and p_out == i_out:
             break
-    
+            
     return n_bounds, taboo
 
 def count_bounds(outside:Dict[Coord, List[Coord]]) -> int:
@@ -118,7 +148,7 @@ def search_region(pt:Coord, gmap:List[List[str]]):
 
 
 if __name__ == '__main__':
-    with open('12/data_t3.txt', 'r') as file:
+    with open('12/data.txt', 'r') as file:
         lines = file.read().splitlines() 
     gmap = []
     for l in lines:
