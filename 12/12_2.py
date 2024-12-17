@@ -43,26 +43,25 @@ def move_forward(p_in:Coord, p_out:Coord):
     np_out = (p_out[0] + d[0], p_out[1] + d[1])
     return np_in, np_out
 
-def rotate(p_in:Coord, p_out:Coord, interior:List[Coord], outside:Dict[Coord, List[Coord]], taboo:List[Tuple[Coord,Coord]]) :
+def rotate(p_in:Coord, p_out:Coord, interior:List[Coord], outside:Dict[Coord, List[Coord]]) :
     for ext_flag in [True, False]: 
-        for rd in [1]:        
-            if ext_flag: 
-                # rotate exterior
-                np_out = r90_coord(p_in, p_out, rd, clockwise=True)
-                np_in = p_in
-            else:
-                # rotate interior
-                np_in = r90_coord(p_out, p_in, rd, clockwise=False)
-                np_out = p_out
-
-            print(p_in, p_out, rd, np_in, np_out, np_in in interior, np_out in outside[np_in], (np_in, np_out) in taboo)
-            if (np_in in interior 
-                and np_out in outside[np_in] 
-                #and (np_in, np_out) not in taboo
-                ):
-                return np_in, np_out
+          
+        if ext_flag: 
+            # rotate exterior
+            np_out = r90_coord(p_in, p_out, 1, clockwise=True)
+            np_in = p_in
+        else:
+            # rotate interior
+            np_in = r90_coord(p_out, p_in, 1, clockwise=False)
+            np_out = p_out
+        #print(p_in, p_out, rd, np_in, np_out, np_in in interior, np_out in outside[np_in])
+        if (np_in in interior 
+            and np_out in outside[np_in] 
+            #and (np_in, np_out) not in taboo
+            ):
+            return np_in, np_out
     
-    raise ValueError()
+    raise ValueError("something weird is going on ") 
     
 def bounds_from_start(i_in:Coord, i_out:Coord, 
                       interior:List[Coord], 
@@ -83,7 +82,7 @@ def bounds_from_start(i_in:Coord, i_out:Coord,
         else:
             # if I can't move forward: then rotate
 
-            np_in, np_out = rotate(p_in, p_out, interior, outside, taboo)
+            np_in, np_out = rotate(p_in, p_out, interior, outside)
 
             print(f'rotate {p_in, p_out, np_in, np_out}')
             p_in, p_out = np_in, np_out # move
