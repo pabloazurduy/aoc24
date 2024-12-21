@@ -1,268 +1,126 @@
-import os.path
-from collections import deque
+from dataclasses import dataclass
+from typing import List, Tuple
+import re 
 
+import numpy as np
 
-DATA = os.path.join(os.path.dirname(__file__), 'data.txt')
+#might not work 
 
+@dataclass
+class Warehouse:
+    ma: np.ndarray
 
-def __print_grid(grid):
-    max_i = max(grid, key=lambda x: x[0])
-    max_j = max(grid, key=lambda x: x[1])
-    for i in range(max_i[0] + 1):
-        line = ""
-        for j in range(max_j[1] + 1):
-            line += grid[(i, j)]
-        print(line)
+    def __init__(self, ma:List[List[str]]):
+        self.ma = np.array(ma)
 
+    def __str__(self) :
+        return np.array2string(self.ma, separator='',
+                               threshold=np.inf,
+                               max_line_width=400,
+                                prefix='',
+                                suffix='', 
+                                formatter={'str_kind': lambda x: x})
+    @property
+    def sub(self) -> Tuple[int, int]:
+        return list(zip(*np.where(self.ma =='@')))[0]
+    
+    def move(self, dir:str) -> None:
+        if dir in ['<', '>']:
+            self.ma[self.sub[0], :] = self.move_horizontal(self.ma[self.sub[0], :], dir=1 if dir=='>' else -1) 
+        elif dir in ['v', '^']:
+            self.move_vertical(dir == '^') 
+    
 
-def __build_grid_and_instructions(data) -> tuple:
-    grid, instructions = {}, deque()
-    lines = data
-    start = (-1, -1)
-
-    for i in range(len(lines)):
-        if lines[i] == "":
-            for j in range(i, len(lines)):
-                for c in lines[j]:
-                    instructions.append(c)
-            break
-
-        for j, c in enumerate(lines[i]):
-            grid[(i, j)] = c
-            if c == "@":
-                start = (i, j)
-
-    return grid, instructions, start
-
-
-def __modified_grid(data) -> tuple:
-    lines = data.splitlines()
-    for i in range(len(lines)):
-        lines[i] = lines[i].replace("#", "##")
-        lines[i] = lines[i].replace("O", "[]")
-        lines[i] = lines[i].replace(".", "..")
-        lines[i] = lines[i].replace("@", "@.")
-
-    return __build_grid_and_instructions(lines)
-
-
-def __find_boxes(grid) -> dict:
-    boxes = {}
-    for k, v in grid.items():
-        if v == '[':
-            boxes[k] = (k[0], k[1] + 1)
-        elif v == ']':
-            boxes[k] = (k[0], k[1] - 1)
-    return boxes
-
-def __move_robot(grid, instructions, start):
-    current_position = start
-
-    while len(instructions) != 0:
-        movement = instructions.popleft()
-
-        if movement == '^':
-            dxdy = (-1, 0)
-        elif movement == '>':
-            dxdy = (0, 1)
-        elif movement == 'v':
-            dxdy = (1, 0)
-        elif movement == '<':
-            dxdy = (0, -1)
-        else:
-            raise Exception("Unknown movement")
-
-        next_position = (current_position[0] + dxdy[0], current_position[1] + dxdy[1])
-
-        if grid[next_position] == '#':
-            continue
-
-        if grid[next_position] == '.':
-            grid[current_position] = '.'
-            grid[next_position] = '@'
-        elif grid[next_position] == 'O':
-            next_item_position = (next_position[0] + dxdy[0], next_position[1] + dxdy[1])
-            if grid[next_item_position] == '.':
-                grid[next_item_position] = 'O'
-                grid[next_position] = '@'
-            elif grid[next_item_position] == 'O':
-                pos = current_position
-                shifts, space_available = 0, False
-
-                while grid[pos] != '#':
-                    if grid[pos] == '.':
-                        space_available = True
-                        break
-                    pos = (pos[0] + dxdy[0], pos[1] + dxdy[1])
-                    shifts += 1
-
-                if not space_available:
-                    continue
-
-                # step back into last previously occupied position
-                pos = (pos[0] + (-dxdy[0]), pos[1] + (-dxdy[1]))
-
-                for _ in range(shifts):
-                    val = grid[pos]
-                    grid[(pos[0] + dxdy[0], pos[1] + dxdy[1])] = val
-                    grid[pos] = '.'
-                    pos = (pos[0] + (-dxdy[0]), pos[1] + (-dxdy[1]))
+    def move_vertical(self, up:bool) -> None:
+        if up is False:
+            self.ma = np.flip(self.ma, 0)
+        
+        def is_mobile(x:List[int], y:int) -> bool:
+            if len(x)==1 and self.ma[y,x] == '[':
+                return is_mobile(x+[x[0]+1],y)
+            if len(x)==1 and self.ma[y,x] == ']':
+                return is_mobile(x+[x[0]-1],y)
+            if all(self.ma[y-1,i] == '.' for i in x):
+                return True 
+            elif any(self.ma[y-1,i] == '#' for i in x):
+                return False
             else:
-                continue
-
-        grid[current_position] = '.'
-        current_position = next_position
-
-
-def __move_robot_in_second_warehouse(grid, instructions, start):
-    current_position = start
-
-    while len(instructions) != 0:
-        movement = instructions.popleft()
-
-        if movement == '^':
-            dxdy = (-1, 0)
-        elif movement == '>':
-            dxdy = (0, 1)
-        elif movement == 'v':
-            dxdy = (1, 0)
-        else:
-            dxdy = (0, -1)
-
-        next_position = (current_position[0] + dxdy[0], current_position[1] + dxdy[1])
-
-        if grid[next_position] == '#':
-            continue
-
-        if grid[next_position] == '.':
-            grid[current_position] = '.'
-            grid[next_position] = '@'
-        elif grid[next_position] == '[' or grid[next_position] == ']':
-            boxes = __find_boxes(grid)
-            top_points = set()
-            to_move = set()
-            shifts, space_available = 0, False
-
-            positions = []
-            if (grid[next_position] == '[' or grid[next_position] == ']') and (movement == '^' or movement == 'v'):
-                positions.append(next_position)
-                positions.append(boxes[next_position])
+                return all([is_mobile(x=[i], y=y-1) for i in x])
+            
+        def move_up(x:List[int], y:int):
+            print(f'move up {x}, {y}, {self.ma[y,x]}')
+            if len(x)==1 and self.ma[y,x] == '[':
+                move_up(sorted(x+[x[0]+1]),y)
+                return 
+            if len(x)==1 and self.ma[y,x] == ']':
+                move_up(sorted(x+[x[0]-1]),y)
+                return 
+            if len(x)==1 and self.ma[y,x] == '.':
+                return 
+            if all(self.ma[y-1,i] == '.' for i in x):
+                # if empty space then move 
+                self.ma[y-1,x], self.ma[y,x] =  self.ma[y,x], self.ma[y-1,x]
             else:
-                positions.append(next_position)
+                if len(x)==2 and self.ma[y-1,x[0]] == '[' and self.ma[y-1,x[1]] == ']':
+                    move_up(x,y-1)
+                else:
+                    for i in x:
+                        move_up([i],y-1)
+                move_up(x,y)
 
-            to_move.add(next_position)
-            to_move.add(boxes[next_position])
+        if is_mobile(x=[self.sub[1]], y=self.sub[0]):            
+            move_up(x=[self.sub[1]],y= self.sub[0])
 
-            while len(positions) != 0:
-                shifts = 0
-                pp = positions.pop()
-                while True:
-                    if grid[pp] == '.':
-                        # if we're pushing left or right,
-                        # the first space we find is a
-                        # viable candidate.
-                        # Nice and easy!
-                        if movement == '<' or movement == '>':
-                            space_available = True
-                            top_points.add((pp[0] + (-dxdy[0]), pp[1] + (-dxdy[1])))
-                            to_move.clear()
-                            positions.clear()
-                            break
+        if up is False:
+            self.ma = np.flip(self.ma, 0)
 
-                        # if we're pushing up or down,
-                        # we must check both halves of
-                        # the box (positions list will
-                        # have the positions of both
-                        # halves). Additionally, we also
-                        # have to check the top box(es)
-                        # don't have the other half of
-                        # their box hit a wall!
-                        # We will do the latter here
-                        second_half = boxes[(pp[0] + (-dxdy[0]), pp[1] + (-dxdy[1]))]
+    @staticmethod
+    def move_horizontal(arry:np.ndarray, dir:int) -> np.ndarray:
+        if dir==-1: # reversed 
+            arry = arry[::-1]
 
-                        if grid[(second_half[0] + dxdy[0], second_half[1] + dxdy[1])] == '.':
-                            space_available = True
-                            top_points.add((pp[0] + (-dxdy[0]), pp[1] + (-dxdy[1])))
-                            break
-                        if grid[(second_half[0] + dxdy[0], second_half[1] + dxdy[1])] == '#':
-                            space_available = False
-                            break
-                        if grid[(second_half[0] + dxdy[0], second_half[1] + dxdy[1])] == '[' or grid[(second_half[0] + dxdy[0], second_half[1] + dxdy[1])] == ']':
-                            pp = (second_half[0] + dxdy[0], second_half[1] + dxdy[1])
-                            continue
-                    elif grid[pp] == '#':
-                        space_available = False
-                        break
-                    elif grid[pp] == '[' or grid[pp] == ']':
-                        if boxes[pp] not in to_move:
-                            positions.append(boxes[pp])
-                            to_move.add(boxes[pp])
-                        to_move.add(pp)
+        narry = arry.copy()
+        s_i= np.argwhere(arry=='@')[0][0]
+        b_j = np.argwhere(arry=='#')[np.argwhere(arry=='#')>s_i][0]
+        if np.any(arry[s_i:b_j]=='.'):    
+            e_j = np.argwhere(arry[s_i:b_j]=='.')[0][0] + s_i
+            narry[s_i+1:e_j+1] = arry[s_i:e_j]
+            narry[s_i] = '.'
 
-                    pp = (pp[0] + dxdy[0], pp[1] + dxdy[1])
-                    shifts += 1
+        if dir==-1: # reversed  back
+            narry = narry[::-1]
+        
+        return narry
+    
+    @property 
+    def gps_sum(self) -> int:
+        return int(sum([u*100 + v for (u,v) in np.argwhere(self.ma =='[')]))
 
-                if not space_available:
-                    break
+p2_dict = {'#':['#','#'],
+           'O':['[',']'],
+           '.':['.','.'],
+           '@':['@','.'],
 
-            if not space_available:
-                continue
-
-            if len(to_move) != 0:
-                halves = []
-                for p in to_move:
-                    halves.append(boxes[p])
-                for a in halves:
-                    to_move.add(a)
-
-                to_move = list(to_move)
-                to_move.sort(key=lambda x: (x[1], x[0]))
-                if movement == 'v':
-                    to_move.reverse()
-
-                for p in to_move:
-                    grid[(p[0] + dxdy[0], p[1])] = grid[p]
-                    grid[p] = '.'
-            else:
-                for p in top_points:
-                    for _ in range(shifts):
-                        val = grid[p]
-                        grid[(p[0] + dxdy[0], p[1] + dxdy[1])] = val
-                        grid[p] = '.'
-                        p = (p[0] + (-dxdy[0]), p[1] + (-dxdy[1]))
-        else:
-            continue
-
-        grid[current_position] = '.'
-        grid[next_position] = '@'
-        current_position = next_position
-
-def part_one(data) -> int:
-    grid, instructions, start = __build_grid_and_instructions(data.splitlines())
-    __move_robot(grid, instructions, start)
-    result = 0
-    for k, v in grid.items():
-        if v == 'O':
-            result += ((100 * k[0]) + k[1])
-    return result
-
-
-def part_two(data) -> int:
-    grid, instructions, start = __modified_grid(data)
-    __move_robot_in_second_warehouse(grid, instructions, start)
-    result = 0
-    for k, v in grid.items():
-        if v == '[':
-            result += ((100 * k[0]) + k[1])
-    return result
-
-def main() -> int:
-    with open(DATA) as f:
-        data = f.read()
-        print("Part 1: " + str(part_one(data)))
-        print("Part 2: " + str(part_two(data)))
-    return 0
-
+}
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    with open('15/data.txt', 'r') as file:
+        lines = file.read().splitlines()
+    
+    map_s:List[List[str]] = []
+    inst: List[str] = []
+    for l in lines:
+        if '#' in l:
+            chars = list(l)
+            row = [ i  for char in chars for i in p2_dict[char] ]
+            
+            map_s.append(row)
+        elif re.match(r'[<^>v]', l):
+            inst.extend(list(l))
+    wh = Warehouse(map_s)
+    for i, j in enumerate(inst):
+        print(i, j)
+        wh.move(j)
+        print(wh)
+        
+    print(f'{wh.gps_sum = }')
