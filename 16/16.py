@@ -4,59 +4,58 @@ import heapq
 
 import numpy as np
 
+
+State = namedtuple('State', ['r','c','dr', 'dc'])
+
 class PriorityQueue:
     def __init__(self):
         self._queue = []
 
-    def push(self, item, cost):
+    def push(self, item:State, cost:float):
         heapq.heappush(self._queue, (cost, item))
 
-    def pop(self):
+    def pop(self) -> Tuple[State, float]:
         item = heapq.heappop(self._queue)
         return item[1], item[0]
 
-    def empty(self):
+    def empty(self) -> bool:
         return len(self._queue) == 0
 
-    def update(self, item, cost):
-        self._queue = [(p, i) for p, i in self._queue if i != item] # Remove existing item if present
-        heapq.heapify(self._queue)
-        self.push(item, cost) # Add item with new cost
-
-State = namedtuple('State', ['x','y','d'])
 
 
 def min_cost(lab:List[List]):
     # get start state 
     lab_a = np.array(lab)
     start = list(zip(*np.where(lab_a=='S')))[0]
-    start_state = State(x=start[1], y=start[0], d=0)
+    start_state = State(r=start[0], c=start[1], dr=0, dc=1)
     
     # initialize variables for UCS 
-    dir = {0:(1,0),
-           1:(0,1),
-           2:(-1,0),
-           3:(0,-1), 
-          }
     # it has to be UCS because DP don't work with cycles 
     frontier = PriorityQueue()
-    frontier.update(start_state, 0) # initialize start with cost 0
-
+    frontier.push(start_state, 0)
+    costs: Dict[State, float] = {}
+    
     while True:
-        new_state, past_cost = frontier.pop() # extract the min cost state
-        #print(new_state, past_cost)
+        cs, past_cost = frontier.pop() # extract the min cost state
+        print(cs, past_cost)
+        costs[cs] =  past_cost
+        
+        if lab[cs.r][cs.c] == 'E': # if terminal state 
+            return past_cost, costs
 
-        if lab[new_state.y][new_state.x] == 'E': # if terminal state 
-            return past_cost 
+        front_state = State(r=cs.r + cs.dr, 
+                            c=cs.c + cs.dc, 
+                            dc=cs.dc, 
+                            dr=cs.dr) # state in front 
 
-        possible_actions = [(State(new_state.x , new_state.y, (new_state.d+1)%4), 1000), # 90 deg
-                            (State(new_state.x , new_state.y, (new_state.d-1)%4), 1000), # -90 deg
-        ]
-        if lab[new_state.y+ dir[new_state.d][1]][new_state.x + dir[new_state.d][0]] != '#':
-            possible_actions.append((State(new_state.x + dir[new_state.d][0], new_state.y+ dir[new_state.d][1], new_state.d), 1))
-
-        for new_state, cost in possible_actions:
-            frontier.update(new_state, past_cost + cost)
+        if (lab[front_state.r][front_state.c] != '#' and front_state not in costs.keys()):      
+            frontier.push(front_state, past_cost+1)
+        
+        #rotate 
+        for ndr, ndc in [(-cs.dc, cs.dr), (cs.dc, -cs.dr)]:
+            r_state = State(c=cs.c, r=cs.r, dr=ndr, dc=ndc) # rotated_state
+            if r_state not in costs.keys():
+                frontier.push(r_state, past_cost+1000)
 
 
 if __name__ == '__main__':
@@ -67,4 +66,7 @@ if __name__ == '__main__':
     inst: List[str] = []
     for l in lines:
         lab.append(list(l))
-    print(min_cost(lab))
+    cost, cost_dict = min_cost(lab)
+    print(cost)
+
+
